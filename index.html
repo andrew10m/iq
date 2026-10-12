@@ -3,185 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#041226">
-  <title>Мой Океанариум</title>
-  <link rel="icon" href="images/clownfish.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#06223a">
+  <title>Погружение — 11 километров вниз</title>
+  <meta name="description" content="Документальное погружение от поверхности океана до дна Марианской впадины.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Общий фон: лучи света и пузырьки -->
-  <div class="backdrop" aria-hidden="true">
-    <div class="rays"></div>
-    <div class="bubbles"></div>
-  </div>
+  <!-- Атмосфера: вода, лучи, частицы -->
+  <div class="water" aria-hidden="true"></div>
+  <div class="rays" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <canvas class="particles" id="particles" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
 
-  <!-- ===================== ЗАСТАВКА ===================== -->
-  <section class="screen screen-intro is-active" id="intro">
-    <div class="intro-waves" aria-hidden="true">
-      <div class="wave w1"></div><div class="wave w2"></div><div class="wave w3"></div>
+  <!-- Навигация -->
+  <header class="nav">
+    <a class="brand" href="#top" id="brand">Погружение</a>
+    <div class="nav-depth" aria-live="off">
+      <span class="nav-depth-num"><b id="navDepth">0</b> м</span>
+      <span class="nav-depth-zone" id="navZone">Солнечная зона</span>
     </div>
-    <div class="intro-content">
-      <img class="intro-fish" src="images/clownfish.svg" alt="">
-      <p class="intro-kicker">Личный океанариум</p>
-      <h1 class="intro-title" id="introTitle">Директор, океанариум ждёт вас</h1>
-      <button class="btn btn-big btn-coral" id="enterBtn">Войти</button>
-      <p class="intro-from" id="introFrom"></p>
-    </div>
-  </section>
+    <button class="nav-btn" id="indexBtn" type="button">Все виды</button>
+  </header>
+  <div class="progress" aria-hidden="true"><span id="progressFill"></span></div>
 
-  <!-- ===================== ХАБ ===================== -->
-  <section class="screen screen-hub" id="hub">
-    <header class="topbar">
-      <button class="rank-chip" id="rankChip" aria-label="Ваш ранг">
-        <span class="rank-name" id="rankName">Юнга</span>
-        <span class="rank-bar"><span id="rankFill"></span></span>
+  <!-- Глубиномер (на больших экранах) -->
+  <aside class="gauge" aria-label="Глубиномер">
+    <div class="gauge-read"><span class="gauge-num" id="gaugeNum">0</span><span class="gauge-unit">м</span></div>
+    <div class="gauge-zone" id="gaugeZone">Солнечная зона</div>
+    <div class="gauge-track">
+      <div class="gauge-fill" id="gaugeFill"></div>
+      <div class="gauge-ticks" id="gaugeTicks"></div>
+    </div>
+  </aside>
+
+  <!-- История погружения собирается из animals.js и STORY в script.js -->
+  <main id="story"></main>
+
+  <!-- Карточка вида -->
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-dim" data-close></div>
+    <article class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+      <button class="drawer-close" type="button" data-close aria-label="Закрыть">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
-      <div class="topstats">
-      <div class="stat" title="Открыто видов"><svg viewBox="0 0 24 24" class="ico"><path d="M2 12c3-5 8-6 12-4l5-3-1 7 1 7-5-3c-4 2-9 1-12-4z" fill="currentColor"/></svg><b id="statFound">0/0</b></div>
-      <div class="stat stat-pearl" title="Жемчужины"><span class="pearl"></span><b id="statPearls">0</b></div>
+      <div class="drawer-scroll" id="dScroll">
+        <div class="drawer-media" id="dMedia"></div>
+        <div class="drawer-body">
+          <p class="eyebrow" id="dEyebrow"></p>
+          <h2 class="drawer-title" id="dTitle"></h2>
+          <p class="latin" id="dLatin"></p>
+          <p class="lead" id="dTag"></p>
+          <dl class="specs" id="dSpecs"></dl>
+          <h3 class="facts-title">Три факта</h3>
+          <ol class="facts" id="dFacts"></ol>
+        </div>
       </div>
-      <button class="icon-btn" id="soundBtn" aria-label="Звук"></button>
-      <button class="icon-btn" id="settingsBtn" aria-label="Настройки"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm8.4 4.6.1-1.1-.1-1.1 2-1.6-2-3.4-2.4.9a8 8 0 0 0-1.9-1.1L15.7 2h-3.9l-.4 2.6a8 8 0 0 0-1.9 1.1l-2.4-.9-2 3.4 2 1.6-.1 1.1.1 1.1-2 1.6 2 3.4 2.4-.9c.6.5 1.2.8 1.9 1.1l.4 2.6h3.9l.4-2.6c.7-.3 1.3-.6 1.9-1.1l2.4.9 2-3.4z" fill="currentColor"/></svg></button>
-    </header>
-
-    <div class="hub-body">
-      <div class="mascot-row">
-        <img class="mascot" id="hubMascot" src="images/mascot.svg" alt="Октавий">
-        <div class="bubble-say" id="hubSay"></div>
-      </div>
-
-      <nav class="hub-grid">
-        <button class="tile tile-dive" data-go="dive">
-          <img src="images/anglerfish.svg" alt="">
-          <span class="tile-title">Погружение</span>
-          <span class="tile-sub">Нырнуть до дна впадины</span>
-        </button>
-        <button class="tile tile-aqua" data-go="aquarium">
-          <img src="images/clownfish.svg" alt="">
-          <span class="tile-title">Мой океанариум</span>
-          <span class="tile-sub" id="tileAquaSub">Ваши бассейны</span>
-        </button>
-        <button class="tile tile-book" data-go="encyclopedia">
-          <img src="images/seahorse.svg" alt="">
-          <span class="tile-title">Энциклопедия</span>
-          <span class="tile-sub" id="tileBookSub">Все виды</span>
-        </button>
-        <button class="tile tile-quiz" data-go="quiz">
-          <img src="images/octopus.svg" alt="">
-          <span class="tile-title">Экзамен аса</span>
-          <span class="tile-sub">Докажите, кто тут эксперт</span>
-        </button>
+      <nav class="drawer-nav">
+        <button type="button" id="dPrev"><span class="arr">←</span><span class="lbl"></span></button>
+        <span class="drawer-count" id="dCount"></span>
+        <button type="button" id="dNext"><span class="lbl"></span><span class="arr">→</span></button>
       </nav>
+    </article>
+  </div>
 
-      <button class="dream-tile" id="dreamTile"></button>
-    </div>
-  </section>
-
-  <!-- ===================== ПОГРУЖЕНИЕ ===================== -->
-  <section class="screen screen-dive" id="dive">
-    <div class="dive-bg" id="diveBg" aria-hidden="true">
-      <div class="dive-rays" id="diveRays"></div>
-      <div class="dive-snow" id="diveSnow"></div>
-    </div>
-    <div class="dive-hud">
-      <button class="back-btn" data-go="hub" aria-label="Назад">←</button>
-      <div class="depth-meter">
-        <span class="depth-num"><b id="depthNum">0</b> м</span>
-        <span class="depth-zone" id="depthZone">Солнечная зона</span>
+  <!-- Указатель всех видов -->
+  <div class="index" id="index" hidden>
+    <div class="index-inner">
+      <div class="index-head">
+        <p class="eyebrow">Указатель</p>
+        <h2 class="index-title">Все виды погружения</h2>
+        <button class="drawer-close index-close" type="button" id="indexClose" aria-label="Закрыть">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
       </div>
-      <div class="stat stat-pearl"><span class="pearl"></span><b class="js-pearls">0</b></div>
-    </div>
-    <div class="dive-scroll" id="diveScroll">
-      <div class="dive-surface">
-        <div class="surface-line"></div>
-        <p>Прокручивайте вниз, чтобы нырнуть.<br>Нажмите на животное, чтобы открыть вид.</p>
-        <div class="scroll-hint">↓</div>
-      </div>
-      <div id="diveZones"></div>
-      <div class="dive-bottom" id="diveBottom"></div>
-    </div>
-  </section>
-
-  <!-- ===================== МОЙ ОКЕАНАРИУМ ===================== -->
-  <section class="screen screen-aqua" id="aquarium">
-    <header class="screen-head">
-      <button class="back-btn" data-go="hub" aria-label="Назад">←</button>
-      <h2>Мой океанариум</h2>
-      <div class="stat stat-pearl"><span class="pearl"></span><b class="js-pearls">0</b></div>
-    </header>
-    <div class="pool-tabs" id="poolTabs" role="tablist"></div>
-    <div class="pool" id="pool">
-      <div class="pool-light"></div>
-      <div class="pool-decor" id="poolDecor"></div>
-      <div class="pool-sand"></div>
-      <div class="pool-fish" id="poolFish"></div>
-      <div class="pool-food" id="poolFood"></div>
-      <div class="pool-empty" id="poolEmpty"></div>
-    </div>
-    <div class="pool-tools">
-      <span class="pool-count" id="poolCount"></span>
-      <button class="btn btn-coral" id="feedAllBtn">Покормить всех</button>
-      <button class="btn btn-ghost" id="decorBtn">Украшения</button>
-    </div>
-  </section>
-
-  <!-- ===================== ЭНЦИКЛОПЕДИЯ ===================== -->
-  <section class="screen screen-book" id="encyclopedia">
-    <header class="screen-head">
-      <button class="back-btn" data-go="hub" aria-label="Назад">←</button>
-      <h2>Энциклопедия</h2>
-      <span class="book-count" id="bookCount"></span>
-    </header>
-    <div class="chips" id="bookFilters"></div>
-    <div class="book-grid" id="bookGrid"></div>
-  </section>
-
-  <!-- ===================== ЭКЗАМЕН АСА ===================== -->
-  <section class="screen screen-quiz" id="quiz">
-    <header class="screen-head">
-      <button class="back-btn" id="quizBack" aria-label="Назад">←</button>
-      <h2>Экзамен аса</h2>
-      <div class="stat stat-pearl"><span class="pearl"></span><b class="js-pearls">0</b></div>
-    </header>
-    <div class="quiz-wrap" id="quizWrap"></div>
-  </section>
-
-  <!-- ===================== МЕЧТА ===================== -->
-  <section class="screen screen-dream" id="dream">
-    <div class="dream-sky" aria-hidden="true"></div>
-    <div class="dream-card">
-      <img class="dream-mascot" src="images/mascot.svg" alt="">
-      <p class="dream-kicker">Совершенно секретно</p>
-      <h2 id="dreamTitle"></h2>
-      <p class="dream-lead">А теперь — настоящая задача:</p>
-      <p class="dream-text" id="dreamText"></p>
-      <p class="dream-date" id="dreamDate"></p>
-      <p class="dream-from" id="dreamFrom"></p>
-      <button class="btn btn-big btn-coral" data-go="hub">Принято, директор!</button>
-    </div>
-  </section>
-
-  <!-- ===================== ОКНА ===================== -->
-  <div class="sheet-wrap" id="sheetWrap" hidden>
-    <div class="sheet-dim" id="sheetDim"></div>
-    <div class="sheet" id="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" id="sheetClose" aria-label="Закрыть">✕</button>
-      <div id="sheetBody"></div>
+      <div class="index-list" id="indexList"></div>
     </div>
   </div>
 
-  <div class="dialog-wrap" id="dialogWrap" hidden>
-    <div class="dialog">
-      <img src="images/mascot.svg" alt="" class="dialog-mascot">
-      <p class="dialog-name">Октавий, заместитель по науке</p>
-      <p class="dialog-text" id="dialogText"></p>
-      <button class="btn btn-coral" id="dialogNext">Дальше</button>
-    </div>
-  </div>
-
-  <div class="toasts" id="toasts" aria-live="polite"></div>
-
+  <script src="vendor/gsap.min.js"></script>
+  <script src="vendor/ScrollTrigger.min.js"></script>
+  <script src="vendor/ScrollToPlugin.min.js"></script>
   <script src="animals.js"></script>
   <script src="script.js"></script>
 </body>
