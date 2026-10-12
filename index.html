@@ -57,6 +57,7 @@
           <dl class="specs" id="dSpecs"></dl>
           <h3 class="facts-title">Три факта</h3>
           <ol class="facts" id="dFacts"></ol>
+          <div id="dGame"></div>
         </div>
       </div>
       <nav class="drawer-nav">
@@ -81,10 +82,75 @@
     </div>
   </div>
 
+
+  <!-- ===================== ЭКСПЕДИЦИЯ ===================== -->
+  <div class="hud" id="hud" hidden>
+    <button class="hud-task" id="hudTask" type="button">
+      <span class="hud-k" id="hudAct"></span>
+      <span class="hud-t" id="hudGoal"></span>
+      <span class="hud-bar"><i id="hudBar"></i></span>
+    </button>
+    <button class="hud-radio" id="hudRadio" type="button" hidden aria-label="Сеанс связи">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 13v8M9 21h6M8.5 9.5a5 5 0 0 1 7 0M5.6 6.6a9 9 0 0 1 12.8 0" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="12.5" r="1.6" fill="currentColor"/></svg>
+    </button>
+    <button class="hud-journal" id="hudJournal" type="button"><span>Журнал</span><b id="hudData">0</b></button>
+  </div>
+
+  <div class="radio" id="radio" hidden role="dialog" aria-live="polite">
+    <div class="radio-head"><span class="radio-dot"></span><span id="radioFrom">Связь</span><span class="radio-count" id="radioCount"></span></div>
+    <p class="radio-text" id="radioText"></p>
+    <div class="radio-extra" id="radioExtra"></div>
+    <button class="g-btn" type="button" id="radioOk">Принято</button>
+  </div>
+
+  <div class="journal" id="journal" hidden>
+    <div class="j-panel" role="dialog" aria-modal="true" aria-labelledby="jTitle">
+      <header class="j-head">
+        <div><p class="eyebrow" id="jSub"></p><h2 id="jTitle">Журнал экспедиции</h2></div>
+        <button class="drawer-close j-close" type="button" id="jClose" aria-label="Закрыть">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <nav class="j-tabs" id="jTabs" role="tablist"></nav>
+      <div class="j-body" id="jBody"></div>
+    </div>
+  </div>
+
+  <div class="prologue" id="prologue" hidden>
+    <div class="pro-inner">
+      <p class="eyebrow">Экспедиция «Зов глубины» · 1997</p>
+      <canvas class="pro-wave" id="proWave" aria-hidden="true"></canvas>
+      <button class="g-link" type="button" id="proPlay">▶ Звуковая модель сигнала</button>
+      <div id="proStory">
+        <p class="pro-text" id="proText"></p>
+        <button class="g-btn" type="button" id="proNext">Дальше</button>
+      </div>
+      <div id="proName" hidden>
+        <p class="pro-text">Как назовём наш батискаф?</p>
+        <input class="g-input" id="subName" maxlength="24" placeholder="Например, «Наутилус»" autocomplete="off">
+        <button class="g-btn" type="button" id="proStart">Начать погружение</button>
+      </div>
+      <button class="g-link pro-code-btn" type="button" id="proHaveCode">У меня есть код экспедиции</button>
+      <div class="pro-code" id="proCode" hidden>
+        <input class="g-input" id="proCodeIn" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XX" autocomplete="off" spellcheck="false">
+        <button class="g-btn" type="button" id="proCodeGo">Продолжить</button>
+        <p class="ded-fb" id="proCodeFb"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="finale" id="finale" hidden>
+    <div class="fin-inner" id="finBody"></div>
+  </div>
+
+  <div class="g-toasts" id="gToasts" aria-live="polite"></div>
+
   <script src="vendor/gsap.min.js"></script>
   <script src="vendor/ScrollTrigger.min.js"></script>
   <script src="vendor/ScrollToPlugin.min.js"></script>
   <script src="animals.js"></script>
+  <script src="expedition.js"></script>
   <script src="script.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>

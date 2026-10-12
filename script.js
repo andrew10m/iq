@@ -3,8 +3,11 @@
    Пока в полях заготовки в квадратных скобках, на сайте их не видно.
    ===================================================================== */
 const CONFIG = {
-  name: "[ИМЯ]",                                   // для кого: «Для Миши»
-  fromWho: "[ОТ КОГО, например: от старшего брата]" // от кого
+  name: "[ИМЯ]",                                     // имя брата: «Миша»
+  captain: "[ТВОЁ ИМЯ]",                             // ты — капитан экспедиции: «Андрей»
+  fromWho: "[ОТ КОГО, например: от старшего брата]", // подпись на обложке и в финале
+  finalMessage: "[ТЕКСТ ПОСЛАНИЯ В ФИНАЛЕ]",         // например: «Собирайся: едем в Москвариум!»
+  finalDate: "[ДАТА, если есть]"                     // например: «15 июня, 11:00»
 };
 
 /* ===================================================================== */
@@ -80,6 +83,12 @@ const NUM = (id) => String(ORDER.indexOf(id) + 1).padStart(2, "0");
 const zoneRange = (z) => `${fmt(ZONES[z].from)}–${fmt(ZONES[z].to)} м`;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* ---------------- связь с игровым слоем ---------------- */
+const hooks = { depth: [], drawer: [], index: [], action: [], build: [] };
+const emit = (evt, ...args) => hooks[evt].forEach((fn) => { try { fn(...args); } catch (e) { console.error(e); } });
+let maxZone = 3;
+const visibleOrder = () => ORDER.filter((id) => BY_ID[id].zone <= maxZone);
+
 function photoHtml(src, alt, z, label) {
   return `<figure class="ph" data-z="${z}">
     <img src="${esc(src)}" alt="${esc(alt)}" decoding="async">
@@ -101,7 +110,7 @@ function splitWords(el) {
 }
 
 /* ---------------- сборка страницы ---------------- */
-function assignDepths() {
+(function assignDepths() {
   let zone = 0;
   const groups = [[], [], [], []];
   STORY.forEach((s) => {
@@ -117,8 +126,9 @@ function assignDepths() {
       s.zone = zi;
     });
   });
-  STORY[STORY.length - 1].depth = BOTTOM;
-}
+  const end = STORY[STORY.length - 1];
+  end.depth = BOTTOM; end.zone = 3;
+})();
 
 function heroHtml(s) {
   const who = isSet(CONFIG.name) ? `Для ${esc(CONFIG.name)}` : "";
@@ -185,11 +195,24 @@ function galleryHtml(s) {
     </div>
     <div class="gallery-track">${s.ids.map((id) => {
       const a = BY_ID[id];
-      return `<button class="card" type="button" data-open="${a.id}" aria-label="${esc(a.name)}: подробнее">
+      return `<button class="card" type="button" data-open="${a.id}" data-species="${a.id}" aria-label="${esc(a.name)}: подробнее">
         <div class="card-media">${photoHtml(a.photo, a.name, a.zone, "Фото")}</div>
         <div class="card-meta"><span class="card-no">${NUM(a.id)}</span><span class="card-name">${esc(a.name)}</span><span class="card-latin">${esc(a.latin)}</span></div>
       </button>`;
     }).join("")}</div>
+  </section>`;
+}
+
+function barrierHtml(z) {
+  const limit = ZONES[z].to;
+  return `<section class="barrier chapter" data-depth="${limit}" data-chapter="limit" id="limit">
+    <div class="chapter-inner">
+      <p class="eyebrow">Предел корпуса · ${fmt(limit)} м</p>
+      <div class="chapter-num"><span>${fmt(limit)}</span><small>м</small></div>
+      <h2 class="display-m">Дальше — нельзя</h2>
+      <p class="lead">Корпус батискафа рассчитан только до ${fmt(limit)} м. Глубже его раздавит давление. Улучши корпус в журнале экспедиции.</p>
+      <button class="more" type="button" data-action="sub">Открыть батискаф <span>→</span></button>
+    </div>
   </section>`;
 }
 
@@ -201,16 +224,17 @@ function endHtml(s) {
       <div class="chapter-num"><span>≈${fmt(BOTTOM)}</span><small>м</small></div>
       <h2 class="display-m">Дно мира</h2>
       <p class="lead">Самое глубокое место на Земле. Давление здесь больше тысячи атмосфер. Люди впервые опустились сюда в 1960 году.</p>
-      <button class="ascend" type="button" id="ascend">Всплыть на поверхность <span>↑</span></button>
+      <button class="ascend" type="button" data-action="ascend">Всплыть на поверхность <span>↑</span></button>
     </div>
   </section>`;
 }
 
 function build() {
-  assignDepths();
-  $("#story").innerHTML = STORY.map((s) => ({
+  const parts = STORY.filter((s) => s.zone <= maxZone && (s.type !== "end" || maxZone === 3)).map((s) => ({
     hero: heroHtml, chapter: chapterHtml, feature: featureHtml, gallery: galleryHtml, end: endHtml
-  }[s.type])(s)).join("");
+  }[s.type])(s));
+  if (maxZone < 3) parts.push(barrierHtml(maxZone));
+  $("#story").innerHTML = parts.join("");
   $$("#story .split").forEach(splitWords);
   bindPhotos($("#story"));
 }
@@ -344,7 +368,8 @@ function render(force) {
   const dot = $("#gaugeDot");
   if (dot) dot.style.top = `${p * 100}%`;
   $("#progressFill").style.transform = `scaleX(${p})`;
-  ticks.forEach((t) => t.el.classList.toggle("on", Math.abs(t.depth - depth) < 1 || (depth >= t.depth && depth < t.next)));
+  ticks.forEach((t) => t.el.classList.toggle("on", depth >= t.depth && depth < t.next));
+  emit("depth", depth);
 }
 
 function buildTicks() {
@@ -356,7 +381,7 @@ function buildTicks() {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "tick";
-    el.textContent = `${m.depth === BOTTOM ? "≈" : ""}${fmt(m.depth)} м`;
+    el.textContent = `${m.depth === BOTTOM ? "≈" : ""}${fmt(m.depth)} м${m.el.dataset.chapter === "limit" ? " · предел" : ""}`;
     el.style.top = `${clamp(m.goTo / max) * 100}%`;
     el.addEventListener("click", () => scrollToY(m.goTo, 1.8));
     box.appendChild(el);
@@ -364,8 +389,8 @@ function buildTicks() {
   });
 }
 
-function scrollToY(y, duration) {
-  gsap.to(window, { scrollTo: { y, autoKill: true }, duration, ease: "power3.inOut" });
+function scrollToY(y, duration, onComplete) {
+  gsap.to(window, { scrollTo: { y, autoKill: true }, duration, ease: "power3.inOut", onComplete });
 }
 
 /* ---------------- анимации прокрутки ---------------- */
@@ -379,12 +404,15 @@ function revealIn(scope, trigger, start = "top 75%") {
   return tl;
 }
 
+let firstBuild = true;
 function setupSection(sec) {
   if (sec.classList.contains("hero")) {
-    const tl = gsap.timeline({ delay: .2 });
-    tl.from($$(".split .wi", sec), { yPercent: 115, duration: 1.6, ease: "expo.out", stagger: .05 })
-      .from($$("[data-fade], .dedication, .scroll-cue", sec), { y: 24, autoAlpha: 0, duration: 1.2, ease: "power3.out", stagger: .12 }, .5)
-      .from($(".hero-media", sec), { scale: 1.12, duration: 2.6, ease: "power2.out" }, 0);
+    if (firstBuild) {
+      const tl = gsap.timeline({ delay: .2 });
+      tl.from($$(".split .wi", sec), { yPercent: 115, duration: 1.6, ease: "expo.out", stagger: .05 })
+        .from($$("[data-fade], .dedication, .scroll-cue", sec), { y: 24, autoAlpha: 0, duration: 1.2, ease: "power3.out", stagger: .12 }, .5)
+        .from($(".hero-media", sec), { scale: 1.12, duration: 2.6, ease: "power2.out" }, 0);
+    }
     gsap.timeline({ scrollTrigger: { trigger: sec, start: "top top", end: "bottom top", scrub: true } })
       .to($(".hero-text", sec), { yPercent: -35, autoAlpha: 0, ease: "none" }, 0)
       .to($(".scroll-cue", sec), { autoAlpha: 0, ease: "none", duration: .3 }, 0)
@@ -394,13 +422,13 @@ function setupSection(sec) {
 
   if (sec.classList.contains("chapter")) {
     const inner = $(".chapter-inner", sec);
+    const isLimit = sec.classList.contains("barrier");
     const tl = gsap.timeline({
-      scrollTrigger: { trigger: sec, start: "top top", end: "+=110%", pin: true, scrub: .6 }
+      scrollTrigger: { trigger: sec, start: "top top", end: isLimit ? "+=60%" : "+=110%", pin: true, scrub: .6 }
     });
     tl.from($(".chapter-num", sec), { scale: .82, autoAlpha: 0, filter: "blur(14px)", duration: 1, ease: "power2.out" })
-      .from($$(".eyebrow, h2, .lead, .chapter-stat", inner), { y: 40, autoAlpha: 0, stagger: .12, duration: .8 }, .25)
-      .to({}, { duration: .8 })
-      .to(inner, { y: -70, autoAlpha: 0, duration: .8, ease: "power1.in" });
+      .from($$(".eyebrow, h2, .lead, .chapter-stat, .more", inner), { y: 40, autoAlpha: 0, stagger: .12, duration: .8 }, .25);
+    if (!isLimit) tl.to({}, { duration: .8 }).to(inner, { y: -70, autoAlpha: 0, duration: .8, ease: "power1.in" });
     sec._goTo = tl.scrollTrigger;
     return;
   }
@@ -450,15 +478,48 @@ function setupSection(sec) {
   }
 }
 
+function setupAll() {
+  markers = [];
+  // маркеры глубины и анимации создаются сверху вниз — так ScrollTrigger правильно учитывает закрепления
+  $$("#story > section").forEach((sec) => {
+    const m = { el: sec, depth: +sec.dataset.depth, st: ScrollTrigger.create({ trigger: sec, start: "top 55%" }) };
+    markers.push(m);
+    setupSection(sec);
+    m.pin = sec._goTo || null;
+  });
+}
+
+function onRefresh() {
+  markers.forEach((m) => { m.goTo = m.pin ? m.pin.start + (m.pin.end - m.pin.start) * .35 : m.st.start + window.innerHeight * .55; });
+  buildTicks();
+  render(true);
+}
+
+/* Пересобрать погружение под новый предел глубины (после улучшения корпуса) */
+function setMaxZone(z, opts = {}) {
+  z = clamp(z, 0, 3);
+  if (z === maxZone && !opts.force) return;
+  maxZone = z;
+  ScrollTrigger.getAll().forEach((st) => st.kill());
+  gsap.killTweensOf(window);
+  build();
+  setupAll();
+  ScrollTrigger.refresh();
+  if (Index.isOpen()) Index.build();
+  emit("build", maxZone);
+}
+
 /* ---------------- карточка вида ---------------- */
 const Drawer = (() => {
   const box = $("#drawer"), panel = $(".drawer-panel", box), dim = $(".drawer-dim", box);
-  let idx = -1, open = false, tween = null;
+  let idx = -1, open = false, tween = null, curId = null;
   const wide = () => window.matchMedia("(min-width: 900px)").matches;
 
-  function fill(i) {
-    idx = (i + ORDER.length) % ORDER.length;
-    const a = BY_ID[ORDER[idx]];
+  function fill(id) {
+    const list = visibleOrder();
+    idx = list.indexOf(id);
+    curId = id;
+    const a = BY_ID[id];
     const z = ZONES[a.zone];
     $("#dMedia").innerHTML = photoHtml(a.photo, a.name, a.zone, `Фото · ${a.name}`);
     bindPhotos($("#dMedia"));
@@ -469,24 +530,26 @@ const Drawer = (() => {
     $("#dSpecs").innerHTML = [["Где живёт", a.home], ["Глубина", a.depth], ["Размер", a.size], ["Питание", a.food]]
       .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("");
     $("#dFacts").innerHTML = a.facts.map((f) => `<li>${esc(f)}</li>`).join("");
-    const prev = BY_ID[ORDER[(idx - 1 + ORDER.length) % ORDER.length]];
-    const next = BY_ID[ORDER[(idx + 1) % ORDER.length]];
+    const prev = BY_ID[list[(idx - 1 + list.length) % list.length]];
+    const next = BY_ID[list[(idx + 1) % list.length]];
     $("#dPrev .lbl").textContent = prev.name;
     $("#dNext .lbl").textContent = next.name;
     $("#dPrev").setAttribute("aria-label", `Предыдущий вид: ${prev.name}`);
     $("#dNext").setAttribute("aria-label", `Следующий вид: ${next.name}`);
     $("#dCount").textContent = `${NUM(a.id)} / ${ORDER.length}`;
+    $("#dGame").innerHTML = "";
+    emit("drawer", a, $("#dGame"));
     $("#dScroll").scrollTop = 0;
   }
 
   function show(id) {
-    const i = ORDER.indexOf(id);
-    if (i < 0) return;
-    if (open) { step(i - idx); return; }
-    fill(i);
+    if (!BY_ID[id] || BY_ID[id].zone > maxZone) return;
+    if (open) { if (id !== curId) swap(() => fill(id), 1); return; }
+    fill(id);
     open = true;
     box.hidden = false;
     document.documentElement.style.overflow = "hidden";
+    document.body.classList.add("drawer-open");
     tween && tween.kill();
     tween = gsap.timeline()
       .fromTo(dim, { autoAlpha: 0 }, { autoAlpha: 1, duration: .45, ease: "power2.out" }, 0)
@@ -495,24 +558,32 @@ const Drawer = (() => {
     setTimeout(() => $(".drawer-close", panel).focus({ preventScroll: true }), 50);
   }
 
-  function step(dir) {
-    if (!dir) return;
-    const body = $$(".drawer-body > *, .drawer-media", panel);
-    gsap.to(body, {
+  function swap(doFill, dir) {
+    const els = () => $$(".drawer-body > *, .drawer-media", panel);
+    gsap.to(els(), {
       autoAlpha: 0, x: dir > 0 ? -24 : 24, duration: .22, ease: "power2.in",
       onComplete: () => {
-        fill(idx + dir);
-        gsap.fromTo($$(".drawer-body > *, .drawer-media", panel), { autoAlpha: 0, x: dir > 0 ? 24 : -24 },
-          { autoAlpha: 1, x: 0, duration: .5, ease: "power3.out", stagger: .025 });
+        doFill();
+        gsap.fromTo(els(), { autoAlpha: 0, x: dir > 0 ? 24 : -24 }, { autoAlpha: 1, x: 0, duration: .5, ease: "power3.out", stagger: .025 });
       }
     });
+  }
+
+  function step(dir) {
+    const list = visibleOrder();
+    const nextId = list[(idx + dir + list.length) % list.length];
+    swap(() => fill(nextId), dir);
   }
 
   function hide() {
     if (!open) return;
     open = false;
     tween && tween.kill();
-    tween = gsap.timeline({ onComplete: () => { box.hidden = true; document.documentElement.style.overflow = ""; } })
+    tween = gsap.timeline({ onComplete: () => {
+      box.hidden = true;
+      if (!Index.isOpen()) document.documentElement.style.overflow = "";
+      document.body.classList.remove("drawer-open");
+    } })
       .to(panel, wide() ? { xPercent: 100 } : { yPercent: 100 }, { duration: .5, ease: "power3.in" }, 0)
       .to(dim, { autoAlpha: 0, duration: .4 }, .1);
   }
@@ -523,16 +594,17 @@ const Drawer = (() => {
   let sx = 0, sy = 0;
   panel.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
   panel.addEventListener("touchend", (e) => {
+    if (e.target.closest("textarea, input, .scan")) return;
     const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
     if (Math.abs(dx) > 70 && Math.abs(dy) < 50) step(dx < 0 ? 1 : -1);
   }, { passive: true });
   document.addEventListener("keydown", (e) => {
-    if (!open) return;
+    if (!open || e.target.closest("textarea, input")) return;
     if (e.key === "Escape") hide();
     if (e.key === "ArrowRight") step(1);
     if (e.key === "ArrowLeft") step(-1);
   });
-  return { show, hide, isOpen: () => open };
+  return { show, hide, isOpen: () => open, current: () => (open ? curId : null), refresh: () => { if (open) fill(curId); } };
 })();
 
 /* ---------------- указатель видов ---------------- */
@@ -541,11 +613,16 @@ const Index = (() => {
   function build() {
     $("#indexList").innerHTML = ZONES.map((z, zi) => {
       const list = ORDER.map((id) => BY_ID[id]).filter((a) => a.zone === zi);
-      return `<div class="index-zone"><h3>${z.name}<small>${zoneRange(zi)}</small></h3>
-        <div class="index-names">${list.map((a) => `<button type="button" data-open="${a.id}">${esc(a.name)}<span>${esc(a.latin)}</span></button>`).join("")}</div></div>`;
+      const locked = zi > maxZone;
+      return `<div class="index-zone ${locked ? "is-locked" : ""}"><h3>${z.name}<small>${zoneRange(zi)}${locked ? " · нужен корпус прочнее" : ""}</small></h3>
+        <div class="index-names">${list.map((a) => locked
+          ? `<button type="button" disabled>Неизвестный вид<span>${"·".repeat(3)}</span></button>`
+          : `<button type="button" data-open="${a.id}" data-species="${a.id}">${esc(a.name)}<span>${esc(a.latin)}</span></button>`).join("")}</div></div>`;
     }).join("");
+    $$("#indexList [data-species]").forEach((b) => emit("index", b.dataset.species, b));
   }
   function show() {
+    build();
     box.hidden = false;
     document.documentElement.style.overflow = "hidden";
     gsap.fromTo(box, { autoAlpha: 0 }, { autoAlpha: 1, duration: .4 });
@@ -557,36 +634,55 @@ const Index = (() => {
   $("#indexBtn").addEventListener("click", show);
   $("#indexClose").addEventListener("click", () => hide());
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !box.hidden && !Drawer.isOpen()) hide(); });
-  build();
-  return { hide, isOpen: () => !box.hidden };
+  return { hide, show, build, isOpen: () => !box.hidden };
 })();
 
+/* ---------------- открытый интерфейс для игры ---------------- */
+window.Ocean = {
+  on: (evt, fn) => { hooks[evt].push(fn); },
+  ZONES, BOTTOM, ORDER, BY_ID, NUM, fmt, esc, isSet,
+  get maxZone() { return maxZone; },
+  get depth() { return depth; },
+  setMaxZone,
+  openSpecies: (id) => Drawer.show(id),
+  closeSpecies: () => Drawer.hide(),
+  currentSpecies: () => Drawer.current(),
+  refreshSpecies: () => Drawer.refresh(),
+  openIndex: () => Index.show(),
+  refreshIndex: () => { if (Index.isOpen()) Index.build(); },
+  scrollToY,
+  ascend: (onDone) => scrollToY(0, clamp(window.scrollY / 4000, 1.6, 6), onDone),
+  scrollToZone: (z) => {
+    const el = $(`#zone-${z}`) || $("#limit");
+    if (!el) return;
+    const m = markers.find((k) => k.el === el);
+    if (m) scrollToY(m.goTo, 2.4);
+  },
+  photoHtml, bindPhotos
+};
+
 /* ---------------- запуск ---------------- */
-function init() {
+function boot() {
   gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+  const game = window.OceanGame;
+  maxZone = game ? game.maxZone() : 3;
   build();
-
-  // маркеры глубины и анимации создаются сверху вниз — так ScrollTrigger правильно учитывает закрепления
-  $$("#story > section").forEach((sec) => {
-    const m = { el: sec, depth: +sec.dataset.depth, st: ScrollTrigger.create({ trigger: sec, start: "top 55%" }) };
-    markers.push(m);
-    setupSection(sec);
-    m.pin = sec._goTo || null;
-  });
-
-  ScrollTrigger.addEventListener("refresh", () => {
-    markers.forEach((m) => { m.goTo = m.pin ? m.pin.start + (m.pin.end - m.pin.start) * .35 : m.st.start + window.innerHeight * .55; });
-    buildTicks();
-    render(true);
-  });
+  setupAll();
+  firstBuild = false;
+  ScrollTrigger.addEventListener("refresh", onRefresh);
 
   document.addEventListener("click", (e) => {
+    const act = e.target.closest("[data-action]");
+    if (act) {
+      if (act.dataset.action === "ascend") window.Ocean.ascend();
+      emit("action", act.dataset.action, act);
+      return;
+    }
     const t = e.target.closest("[data-open]");
     if (!t) return;
     if (Index.isOpen()) Index.hide(true);
     Drawer.show(t.dataset.open);
   });
-  $("#ascend").addEventListener("click", () => scrollToY(0, 6));
   $("#brand").addEventListener("click", (e) => { e.preventDefault(); scrollToY(0, 2.2); });
 
   gsap.ticker.add((time, deltaTime) => {
@@ -594,8 +690,11 @@ function init() {
     if (!reduceMotion) Particles.frame(Math.min(.05, deltaTime / 1000), depth);
   });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => ScrollTrigger.refresh());
+  if (game) game.attach(window.Ocean);
   ScrollTrigger.refresh();
 }
 
-init();
+// game.js подключается после этого файла — запускаемся, когда загружены все скрипты страницы
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+else setTimeout(boot, 0);
 })();
